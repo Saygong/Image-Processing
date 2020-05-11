@@ -7,6 +7,22 @@
 #include "ip_lib.h"
 #include "bmp.h"
 
+float clamp_f(float f, float lo, float hi)
+{
+    if (f > hi)
+    {
+        return 255.0;
+    }
+    else if (f < lo)
+    {
+        return lo;
+    }
+    else
+    {
+        return f;
+    }
+}
+
 void ip_mat_show(ip_mat * t){
     unsigned int i,l,j;
     printf("Matrix of size %d x %d x %d (hxwxk)\n",t->h,t->w,t->k);
@@ -48,8 +64,6 @@ void print_matrix(ip_mat *t){
         }
         printf("\n");
     }
-
-
 }
 
 
@@ -86,9 +100,13 @@ Bitmap * ip_mat_to_bitmap(ip_mat * t){
     {
         for (j = 0; j < t->w; j++)          /* columns */
         {
-            bm_set_pixel(b, j,i, (unsigned char) get_val(t,i,j,0),
-                    (unsigned char) get_val(t,i,j,1),
-                    (unsigned char) get_val(t,i,j,2));
+            float c1 = clamp_f(get_val(t, i, j, 0), 0.0, 255.0);
+            float c2 = clamp_f(get_val(t, i, j, 1), 0.0, 255.0);
+            float c3 = clamp_f(get_val(t, i, j, 2), 0.0, 255.0);
+
+            bm_set_pixel(b, j,i, (unsigned char)c1,
+                    (unsigned char)c2,
+                    (unsigned char)c3);
         }
     }
     return b;
@@ -205,8 +223,10 @@ void compute_stats(ip_mat * t)
 		m = t->data[i][0][0];
 		g = t->data[i][0][0];
  
-        for (j = 0; j < t->h; j++){
-            for (l = 0; l < t->w; l++){
+        for (j = 0; j < t->h; j++)
+        {
+            for (l = 0; l < t->w; l++)
+            {
                 int va;
                 va = t->data[i][j][l];
                 if (va > g)
@@ -227,13 +247,16 @@ void compute_stats(ip_mat * t)
  * Ogni elemento è generato da una gaussiana con media mean e varianza var */
 void ip_mat_init_random(ip_mat * t, float mean, float var)
 {
-    
     int i, j, l;
 
     for (i = 0; i < t->k; i++){
         for (j = 0; j < t->h; j++){
             for (l = 0; l < t->w; l++){
-                t->data[i][j][l] = (1.0/(var*sqrt(2.0*3.1415)))*exp(-(pow((get_normal_random() - mean),2)/(2.0*pow(var,2))));
+                /*Applico formula della gaussiana con media mean e varianza var*/ 
+                t->data[i][j][l] = 
+                    (1.0 / (var * sqrt(2.0 * 3.1415))) 
+                    * exp(-(pow((get_normal_random() - mean), 2) 
+                        / (2.0 * pow(var, 2))));
             }
         }
     }
@@ -246,15 +269,19 @@ ip_mat * ip_mat_copy(ip_mat * in){
  
     copy = ip_mat_create(in->h, in->w, in->k, 0.0) ;/*inizio array 3d*/
  
-    for (i = 0; i < in->k; i++) {
-       for (j = 0; j < in->h; j++) {
-            for (l = 0; l < in->w; l++) {
+    for (i = 0; i < in->k; i++) 
+    {
+       for (j = 0; j < in->h; j++) 
+       {
+            for (l = 0; l < in->w; l++) 
+            {
                copy->data[i][j][l] = in->data[i][j][l];
             }
        }
     }/*fine array 3d*/
  
-    for (i = 0; i < in->k; i++) {   /*inizio array stats*/
+    for (i = 0; i < in->k; i++) 
+    {   /*inizio array stats*/
        copy->stat[i].max = in->stat[i].max;
        copy->stat[i].min = in->stat[i].min;
        copy->stat[i].mean = in->stat[i].mean;
@@ -362,6 +389,8 @@ ip_mat * ip_mat_concat(ip_mat * a, ip_mat * b, int dimensione){
     return matt;
 }
 
+//I controlli per i valori dei pixel (clamp tra 0 e 255) vengono fatti su ip_mat_to_bitmap perciò non c'è bisogno di farli qui
+
 /* Esegue la somma di due ip_mat (tutte le dimensioni devono essere identiche)
 * e la restituisce in output. */
 ip_mat * ip_mat_sum(ip_mat * a, ip_mat * b){
@@ -370,17 +399,13 @@ ip_mat * ip_mat_sum(ip_mat * a, ip_mat * b){
         ip_mat *sum;
         sum = ip_mat_create(a->h, a->w, a->k, 0.0); 
     
-        for (i = 0; i < a->k; i++) {
-            for (j = 0; j < a->h; j++) {
-                for (l = 0; l < a->w; l++) {
-			        float va;
-                    va = a->data[i][j][l] + b->data[i][j][l];
-		   	        if( va > 255.0)
-                		sum->data[i][j][l]= 255.0;
-		   	        else if (va < 0.0)
-				        sum->data[i][j][l]= 0.0;
-		   	        else 
-                        sum->data[i][j][l] = va;
+        for (i = 0; i < a->k; i++) 
+        {
+            for (j = 0; j < a->h; j++) 
+            {
+                for (l = 0; l < a->w; l++) 
+                {
+                    sum->data[i][j][l] = a->data[i][j][l] + b->data[i][j][l];
                 }
             }
         }/*fine array 3d*/
@@ -406,14 +431,7 @@ ip_mat * ip_mat_sub(ip_mat * a, ip_mat * b){
         for (i = 0; i < a->k; i++) {
             for (j = 0; j < a->h; j++) {
                 for (l = 0; l < a->w; l++) {
-                    float va;
-                    va = a->data[i][j][l] - b->data[i][j][l];
-		   	        if( va > 255.0)
-                		sub->data[i][j][l]= 255.0;
-		   	        else if (va < 0.0)
-				        sub->data[i][j][l]= 0.0;
-		   	        else 
-                        sub->data[i][j][l] = va;    
+                    sub->data[i][j][l] = a->data[i][j][l] + b->data[i][j][l];   
                 }
             }
         }/*fine array 3d*/
@@ -434,17 +452,13 @@ ip_mat * ip_mat_mul_scalar(ip_mat *a, float c){
 	ip_mat *mulscalar;	
 	mulscalar = ip_mat_create(a->h, a->w, a->k, 0.0);
  
-	for (i = 0; i < a->k; i++) {
-		for (j = 0; j < a->h; j++) {
-			for (l = 0; l < a->w; l++) {
-                float va;
-		        va = a->data[i][j][l] * c;
-		        if(va > 255.0)
-                	mulscalar->data[i][j][l] = 255.0;
-		        else if (va < 0.0)
-			        mulscalar->data[i][j][l] = 0.0;
-		        else 
-                    mulscalar->data[i][j][l] = va;
+	for (i = 0; i < a->k; i++) 
+    {
+		for (j = 0; j < a->h; j++) 
+        {
+			for (l = 0; l < a->w; l++) 
+            {
+                mulscalar->data[i][j][l] = a->data[i][j][l] * c;
 
 			}
 		}
@@ -460,17 +474,13 @@ ip_mat *  ip_mat_add_scalar(ip_mat *a, float c){
    ip_mat *addscalar; 
    addscalar = ip_mat_create(a->h, a->w, a->k, 0.0);
   
-   for (i = 0; i < a->k; i++) {
-       for (j = 0; j < a->h; j++) {
-           for (l = 0; l < a->w; l++) {
-		    float va;
-     	         va = a->data[i][j][l] + c;
-     	         if(va > 255.0)
-                    addscalar->data[i][j][l] = 255.0;
-     	         else if (va < 0.0)
-         	        addscalar->data[i][j][l] = 0.0;
-     	         else
-                    addscalar->data[i][j][l] = va;
+   for (i = 0; i < a->k; i++) 
+   {
+       for (j = 0; j < a->h; j++) 
+       {
+           for (l = 0; l < a->w; l++) 
+           {
+               addscalar->data[i][j][l] = a->data[i][j][l] + c;
            }
        }
    }
@@ -488,9 +498,12 @@ ip_mat * ip_mat_mean(ip_mat * a, ip_mat * b){
         ip_mat *mean;  
         mean= ip_mat_create(a->h, a->w, a->k, 0.0);
     
-        for (i = 0; i < a->k; i++) {
-            for (j = 0; j < a->h; j++) {
-                for (l = 0; l < a->w; l++) {
+        for (i = 0; i < a->k; i++) 
+        {
+            for (j = 0; j < a->h; j++) 
+            {
+                for (l = 0; l < a->w; l++) 
+                {
                     mean->data[i][j][l] = (a->data[i][j][l] + b->data[i][j][l])/2;
                 }
             }
@@ -518,11 +531,13 @@ ip_mat * ip_mat_to_gray_scale(ip_mat * in){
     for (l = 0; l < in->w; l++) {    /*calcola media di ogni pixel sui 3 canali e lo mette dentro ip_mat nuovo*/
         for (j = 0; j < in->h; j++) {
             float sum = 0;
+
             for (i = 0; i < in->k; i++) {
                 sum += in->data[i][j][l]; /*sommo i valori del pixel sui 3 canali*/
             }
+
             for (i = 0; i < in->k; i++) {
-                grigio->data[i][j][l] = sum/3.0; /*metto sul pixel sui 3 canali il valore medio*/
+                grigio->data[i][j][l] = sum / 3.0; /*metto sul pixel sui 3 canali il valore medio*/
             }
         }
     }
@@ -532,24 +547,21 @@ ip_mat * ip_mat_to_gray_scale(ip_mat * in){
 
 /* Effettua la fusione (combinazione convessa) di due immagini */
 ip_mat * ip_mat_blend(ip_mat * a, ip_mat * b, float alpha){
-    if(a->h == b->h && a->w == b->w && a->k == b->k && alpha<=1.0 && alpha>=0.0){ /*controllo dimensioni e alpha[0,1]*/
-        int i, j, l;
-        ip_mat *blends;  
-        blends = ip_mat_create(a->h, a->w, a->k, 0.0);
+    if(a->h == b->h && a->w == b->w && a->k == b->k && alpha<=1.0 && alpha>=0.0)
+    { 
+        /*controllo dimensioni e alpha[0,1]*/
+        ip_mat* alpha1 = ip_mat_mul_scalar(a, alpha);
+        ip_mat* alpha2 = ip_mat_mul_scalar(b, 1 - alpha);
+        ip_mat* blends = ip_mat_sum(alpha1, alpha2);
 
-        for (i = 0; i < a->k; i++) {
-            for (j = 0; j < a->h; j++) {
-                for (l = 0; l < a->w; l++) {
-                    blends->data[i][j][l] = alpha * a->data[i][j][l] + (1-alpha) * b->data[i][j][l];
-                }
-            }
-        }
         compute_stats(blends);
         return blends;
-    }else{
+    }
+    else
+    {
         printf("Errore ip_mat_blend!!!");
         exit(1);
-   }
+    }
 }
 
 /* Operazione di brightening: aumenta la luminosità dell'immagine
@@ -571,19 +583,14 @@ ip_mat * ip_mat_brighten(ip_mat * a, float bright){
  * */
 ip_mat * ip_mat_corrupt(ip_mat * a, float amount){
 
-    if (amount >= 0.0 && amount<=255){
+    if (amount >= 0.0 && amount <= 255){
 
-        int i, j, l;
-        ip_mat *corr;  
-        corr = ip_mat_create(a->h, a->w, a->k, 0.0);
+        ip_mat* gaussNoise = ip_mat_create(a->h, a->w, a->k, 0);
+        ip_mat_init_random(gaussNoise, get_normal_random(), get_normal_random());
+        gaussNoise = ip_mat_mul_scalar(gaussNoise, amount);
 
-        for (i = 0; i < a->k; i++) {
-            for (j = 0; j < a->h; j++) {
-                for (l = 0; l < a->w; l++) {
-                    corr->data[i][j][l] = a->data[i][j][l] + (get_normal_random()*amount);
-                }
-            }
-        }
+        ip_mat* corr = ip_mat_sum(a, gaussNoise);
+
         compute_stats(corr);
         return corr;
 
