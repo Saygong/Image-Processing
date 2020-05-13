@@ -527,7 +527,8 @@ ip_mat * ip_mat_to_gray_scale(ip_mat * in){
 
     for (l = 0; l < in->w; l++) {    /*calcola media di ogni pixel sui 3 canali e lo mette dentro ip_mat nuovo*/
         for (j = 0; j < in->h; j++) {
-            float sum = 0;
+            float sum;
+            sum = 0.0;
 
             for (i = 0; i < in->k; i++) {
                 sum += in->data[i][j][l]; /*sommo i valori del pixel sui 3 canali*/
@@ -628,7 +629,8 @@ ip_mat* ip_mat_1D_average(ip_mat* t)
     {
         for (j = 0; j < t->w; j++)
         {
-            float valSum = 0;
+            float valSum;
+            valSum = 0.0;
 
             for (k = 0; k < t->k; k++)
             {
@@ -666,7 +668,8 @@ ip_mat* ip_mat_convolve(ip_mat* a, ip_mat* f)
                 ip_mat* tmp;
                 tmp = ip_mat_subset(convolved, i, i + avgFilter->h, j, j + avgFilter->w);
 
-                float result = 0;
+                float result;
+                result = 0.0;
                 
                 for (ii = 0; ii < avgFilter->h; ii++)
                 {
@@ -809,7 +812,8 @@ ip_mat* create_emboss_filter()
 /* Crea un filtro medio per la rimozione del rumore */
 ip_mat* create_average_filter(int w, int h, int k)
 {
-    float c = 1 / (w * h);
+    float c;
+    c = 1 / (w * h);
 
     /*Ritorna una matrice "riempita" di c*/
     return ip_mat_create(h, w, k, c);
@@ -826,8 +830,9 @@ ip_mat* create_gaussian_filter(int w, int h, int k, float sigma)
     assert(w % 2 == 0 || h % 2 == 0);
 
     /*Coordinate centro*/
-    unsigned int cx = (w - 1) / 2;
-    unsigned int cy = (h - 1) / 2;
+    unsigned int cx, cy;
+    cx = (w - 1) / 2;
+    cy = (h - 1) / 2;
 
     f = ip_mat_create(w, h, k, 0);
 
@@ -839,10 +844,13 @@ ip_mat* create_gaussian_filter(int w, int h, int k, float sigma)
         {
             /*Calcolo il valore gaussiano e aggiorno la somma, 
                 che utilizzerò dopo per normalizzare i valori*/
-            unsigned int xDist = abs(i - cx);
-            unsigned int yDist = abs(j - cy);
-            float gaussVal = (1 / (2 * PI * powf(sigma, 2)))
-                * exp(-((powf(xDist, 2) + powf(yDist, 2)) / 2 * powf(sigma, 2)));
+            unsigned int xDist, yDist;
+            xDist = abs(i - cx);
+            yDist = abs(j - cy);
+
+            float gaussVal;
+            gaussVal = (float)(1 / (2 * PI * powf(sigma, 2)))
+                * exp(-((pow(xDist, 2) + pow(yDist, 2)) / 2 * pow(sigma, 2)));
 
             sum += gaussVal;
 
@@ -920,14 +928,16 @@ void rescale(ip_mat* t, float new_max)
 
     for (k = 0; k < t->k; k++)
     {
-        float min = t->stat[k].min;
-        float max = t->stat[k].max;
+        float min, max;
+        min = t->stat[k].min;
+        max = t->stat[k].max;
 
         for (i = 0; i < t->h; i++)
         {
             for (j = 0; j < t->w; j++)
             {
-                float val = t->data[k][i][j];
+                float val;
+                val = t->data[k][i][j];
                 t->data[k][i][j] = (val - min) / (max - min)
             }
         }
