@@ -4,7 +4,7 @@
 
 #include <stdio.h>
 #include <math.h>
-#include <assert.h>
+/*#include <assert.h>*/
 #include "ip_lib.h"
 #include "bmp.h"
 
@@ -14,6 +14,8 @@ float clamp_f(float f, float lo, float hi);
 
 /*Calcola il valore della gaussiana di media = mean e varianza = var in x*/
 float gaussian(float x, float mean, float var);
+
+float get_normal_random_param(float mean, float var);
 
 /*Ritorna una matrice ad una dimensione i cui valori sono la media delle k dimensioni della matrice originale*/
 ip_mat* ip_mat_1D_average(ip_mat* t);
@@ -89,6 +91,8 @@ ip_mat * bitmap_to_ip_mat(Bitmap * img){
 Bitmap * ip_mat_to_bitmap(ip_mat * t){
 
     Bitmap *b = bm_create(t->w,t->h);
+    clamp(t, 0.0, 255.0);
+   
 
     unsigned int i, j;
     for (i = 0; i < t->h; i++)              /* rows */
@@ -97,11 +101,10 @@ Bitmap * ip_mat_to_bitmap(ip_mat * t){
         {
             /*Non ho capito se questo controllo è al 100% cura dell'utente oppure va implementato
             qualora andassimo fuori range*/
-            clamp(t, 0.0, 255.0);
 
-            bm_set_pixel(b, j,i, (unsigned char)(get_val(t, i, j, 0), 0.0, 255.0),
-                    (unsigned char)(get_val(t, i, j, 1), 0.0, 255.0),
-                    (unsigned char)(get_val(t, i, j, 2), 0.0, 255.0));
+            bm_set_pixel(b, j,i, (unsigned char)(get_val(t, i, j, 0)),
+                    (unsigned char)(get_val(t, i, j, 1)),
+                    (unsigned char)(get_val(t, i, j, 2)));
         }
     }
     return b;
@@ -130,6 +133,10 @@ float get_normal_random(){
     float y2 = ( (float)(rand()) + 1. )/( (float)(RAND_MAX) + 1. );
     return cos(2*PI*y2)*sqrt(-2.*log(y1));
 
+}
+
+float get_normal_random_param(float mean, float var) {
+    return get_normal_random() * sqrt(var) + mean;
 }
 
 /*------------------------------------------prima parte------------------------------------------------------*/
@@ -239,8 +246,8 @@ void compute_stats(ip_mat * t)
 
 float gaussian(float x, float mean, float var)
 {
-    return  (float)(1.0 / (var * sqrt(2.0 * PI)))
-                * exp(-(pow((x - mean), 2) / (2.0 * pow(var, 2))));
+    return  (float)(1.0f / (var * sqrt(2.0 * PI)))
+                * exp(-(pow((x - mean), 2) / (2.0f * pow(var, 2))));
 }
 
 
@@ -255,7 +262,7 @@ void ip_mat_init_random(ip_mat * t, float mean, float var)
             for (l = 0; l < t->w; l++){
                 /*Applico formula della gaussiana con media mean e varianza var*/ 
                 /*TODO: Da sistemare*/
-                t->data[i][j][l] = gaussian(get_normal_random(), mean, var);
+                t->data[i][j][l] = get_normal_random_param(mean, var);
             }
         }
     }
@@ -527,8 +534,7 @@ ip_mat * ip_mat_to_gray_scale(ip_mat * in){
 
     for (l = 0; l < in->w; l++) {    /*calcola media di ogni pixel sui 3 canali e lo mette dentro ip_mat nuovo*/
         for (j = 0; j < in->h; j++) {
-            float sum;
-            sum = 0.0;
+            float sum = 0;
 
             for (i = 0; i < in->k; i++) {
                 sum += in->data[i][j][l]; /*sommo i valori del pixel sui 3 canali*/
@@ -589,6 +595,8 @@ ip_mat * ip_mat_brighten(ip_mat * a, float bright)
  * out = a + gauss_noise*amount
  * */
 ip_mat * ip_mat_corrupt(ip_mat * a, float amount){
+ 
+        printf("entra nella funzione\n");
 
     if (amount >= 0.0 && amount <= 255){
         ip_mat* gaussNoise;
@@ -596,9 +604,10 @@ ip_mat * ip_mat_corrupt(ip_mat * a, float amount){
         ip_mat* corr;
 
         gaussNoise = ip_mat_create(a->h, a->w, a->k, 0);
-        ip_mat_init_random(gaussNoise, get_normal_random(), get_normal_random());
+        ip_mat_init_random(gaussNoise, 0, 1);
 
         adjGaussNoise = ip_mat_mul_scalar(gaussNoise, amount);
+
         corr = ip_mat_sum(a, adjGaussNoise);
 
         ip_mat_free(gaussNoise);
@@ -629,8 +638,7 @@ ip_mat* ip_mat_1D_average(ip_mat* t)
     {
         for (j = 0; j < t->w; j++)
         {
-            float valSum;
-            valSum = 0.0;
+            float valSum = 0;
 
             for (k = 0; k < t->k; k++)
             {
@@ -652,24 +660,32 @@ ip_mat* ip_mat_1D_average(ip_mat* t)
 ip_mat* ip_mat_convolve(ip_mat* a, ip_mat* f)
 {
     unsigned int i, j, k, ii, jj;
-    ip_mat* convolved;
+    ip_mat* padded;
     ip_mat* avgFilter;
+    ip_mat* res;
 
-    convolved = ip_mat_padding(a, (f->h - 1) / 2, (f->w - 1) / 2);
+    float pad_h, pad_w;
+    pad_h = (f->h - 1) / 2;
+    pad_w = (f->w - 1) / 2;
+
+    
+    padded = ip_mat_padding(a, pad_h, pad_w);
     avgFilter = ip_mat_1D_average(f);
+    res = ip_mat_create(a->h, a->w, a->k, 255);
 
+    printf("%d      %d\n", padded->h, padded->w);
     for (k = 0; k < a->k; k++)
     {
+        printf("KKK andando a fare %d\n", k);
         /*Bisogna far "scorrere" il filtro sulla matrice*/
-        for (i = 0; i < convolved->h - avgFilter->h; i++)
+        for (i = 0; i < padded->h - (pad_h*2); i++)
         {
-            for (j = 0; i < convolved->w - avgFilter->w; j++)
+            for (j = 0; j < padded->w - (pad_w*2); j++)
             {
                 ip_mat* tmp;
-                tmp = ip_mat_subset(convolved, i, i + avgFilter->h, j, j + avgFilter->w);
+                tmp = ip_mat_subset(padded, i, i + avgFilter->h, j, j + avgFilter->w);
 
-                float result;
-                result = 0.0;
+                float result = 0.0;
                 
                 for (ii = 0; ii < avgFilter->h; ii++)
                 {
@@ -683,15 +699,18 @@ ip_mat* ip_mat_convolve(ip_mat* a, ip_mat* f)
 
                 ip_mat_free(tmp);
 
-                convolved->data[k][i][j] = result;
-            }
+                res->data[k][i][j] = result;
+            }  
         }
+        printf("DIO %d\n", k);
     }
-
+    printf("faccio free");
     ip_mat_free(avgFilter);
-
-    compute_stats(convolved);
-    return convolved;
+    ip_mat_free(padded);
+    printf("faccio stats");
+    compute_stats(res);
+    printf("sto uscendo");
+    return res;
 }
 
 /* Aggiunge un padding all'immagine. Il padding verticale è pad_h mentre quello
@@ -710,14 +729,14 @@ ip_mat* ip_mat_padding(ip_mat* a, int pad_h, int pad_w)
 
     /*Creo prima una matrice di 0 delle dimensioni paddate (a.h + pad_h, a.w + pad_w),
     poi la "riempio" inserendo la matrice originale al centro*/
-    padded = ip_mat_create(a->h + pad_h, a->w + pad_w, a->k, 0);
+    padded = ip_mat_create(a->h + pad_h*2, a->w + pad_w*2, a->k, 0);
 
     for (k = 0; k < a->k; k++)
     {
         /*Bisogna far "scorrere" il filtro sulla matrice*/
         for (i = pad_h; i < (padded->h - pad_h); i++)
         {
-            for (j = 0; j < (padded->w - pad_w); j++)
+            for (j = pad_w; j < (padded->w - pad_w); j++)
             {
                 padded->data[k][i][j] = a->data[k][i - pad_h][j - pad_w];
             }
@@ -812,8 +831,7 @@ ip_mat* create_emboss_filter()
 /* Crea un filtro medio per la rimozione del rumore */
 ip_mat* create_average_filter(int w, int h, int k)
 {
-    float c;
-    c = 1 / (w * h);
+    float c = 1.0f / (w * h);
 
     /*Ritorna una matrice "riempita" di c*/
     return ip_mat_create(h, w, k, c);
@@ -822,21 +840,20 @@ ip_mat* create_average_filter(int w, int h, int k)
 /* Crea un filtro gaussiano per la rimozione del rumore */
 ip_mat* create_gaussian_filter(int w, int h, int k, float sigma)
 {
-    unsigned int i, j, h;
+    unsigned int i, j, kk;
     ip_mat* f;
     ip_mat* normalized;
 
     /*Controllo che dimensione kernel sia dispari altrimenti non c'è il centro*/
-    assert(w % 2 == 0 || h % 2 == 0);
+    /*assert(w % 2 == 0 || h % 2 == 0);*/
 
     /*Coordinate centro*/
-    unsigned int cx, cy;
-    cx = (w - 1) / 2;
-    cy = (h - 1) / 2;
+    unsigned int cx = (w - 1) / 2;
+    unsigned int cy = (h - 1) / 2;
 
     f = ip_mat_create(w, h, k, 0);
 
-    float sum = 0;
+    float sum = 0.0;
 
     for (i = 0; i < h; i++)
     {
@@ -844,27 +861,30 @@ ip_mat* create_gaussian_filter(int w, int h, int k, float sigma)
         {
             /*Calcolo il valore gaussiano e aggiorno la somma, 
                 che utilizzerò dopo per normalizzare i valori*/
-            unsigned int xDist, yDist;
-            xDist = abs(i - cx);
-            yDist = abs(j - cy);
-
-            float gaussVal;
-            gaussVal = (float)(1 / (2 * PI * powf(sigma, 2)))
+            int xDist = abs(i - cx);
+            int yDist = abs(j - cy);
+            float gaussVal = (1 / (2 * PI * pow(sigma, 2)))
                 * exp(-((pow(xDist, 2) + pow(yDist, 2)) / 2 * pow(sigma, 2)));
 
             sum += gaussVal;
 
-            for (h = 0; h < k; h++)
+            for (kk = 0; kk < k; kk++)
             {
-                f->data[h][i][j] = gaussVal;
+                f->data[kk][i][j] = gaussVal;
             }
         }
     }
+    printf("---------Pre-Norm---------\n");
+    ip_mat_show(f);
+    printf("----------------------\n");
 
-    /*Normalizzo dividendo per la somma, in modo che, successivamente, 
+    /*Normalizzo dividendo per la somma, in modo che, successivamente,
         la somma di tutti i valori del filtro sia unitaria*/
-    normalized = ip_mat_mul_scalar(f, 1 / sum);
+    normalized = ip_mat_mul_scalar(f, 1.0f / sum);
 
+    printf("--------Norm-------\n");
+    ip_mat_show(normalized);
+    printf("----------------------\n");
     ip_mat_free(f);
 
     compute_stats(normalized);
@@ -928,29 +948,17 @@ void rescale(ip_mat* t, float new_max)
 
     for (k = 0; k < t->k; k++)
     {
-        float min, max;
-        min = t->stat[k].min;
-        max = t->stat[k].max;
+        float min = t->stat[k].min;
+        float max = t->stat[k].max;
 
         for (i = 0; i < t->h; i++)
         {
             for (j = 0; j < t->w; j++)
             {
-                float val;
-                val = t->data[k][i][j];
-                t->data[k][i][j] = (val - min) / (max - min)
+                float val = t->data[k][i][j];
+                t->data[k][i][j] = (val - min) / (max - min) * new_max;
             }
         }
     }
-
-    rescaled = ip_mat_mul_scalar(t, new_max);
-    temp = t;
-
-    t = rescaled;
     compute_stats(t);
-
-    ip_mat_free(temp);
 }
-
-
-
