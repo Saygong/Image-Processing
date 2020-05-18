@@ -11,12 +11,6 @@
 /* Comprime un valore all'interno del range [lo,hi]*/
 float clamp_f(float f, float lo, float hi);
 
-/*Calcola il valore della gaussiana di media = mean e varianza = var in x*/
-float gaussian(float x, float mean, float var);
-
-/*calcola i valori per array 3D random*/
-float get_normal_random_param(float mean, float var);
-
 /*Ritorna una matrice ad una dimensione i cui valori sono la media delle k dimensioni della matrice originale*/
 ip_mat* ip_mat_1D_average(ip_mat* t);
 
@@ -116,17 +110,14 @@ void set_val(ip_mat* a, unsigned int i, unsigned int j, unsigned int k, float v)
     }
 }
 
-float get_normal_random() {
+float get_normal_random(float media, float std) {
+
     float y1 = ((float)(rand()) + 1.) / ((float)(RAND_MAX)+1.);
     float y2 = ((float)(rand()) + 1.) / ((float)(RAND_MAX)+1.);
-    return cos(2 * PI * y2) * sqrt(-2. * log(y1));
+    float num = cos(2 * PI * y2) * sqrt(-2. * log(y1));
 
+    return media + num * std;
 }
-
-float get_normal_random_param(float mean, float var) {
-    return get_normal_random() * sqrt(var) + mean;
-}
-
 
 
 /*----------------------------------------prima parte----------------------------------------*/
@@ -140,20 +131,26 @@ ip_mat* ip_mat_create(unsigned int h, unsigned int w, unsigned  int k, float v) 
     ip_mat* matt;
     stats* statistiche;
 
+    /*Controllo tramite assert che le allocazioni siano andate a buon fine*/
     matt = (ip_mat*)malloc(sizeof(ip_mat));  /*inizio allocazione array 3d*/
+    assert(matt);
+
     matt->h = h;
     matt->w = w;
     matt->k = k;
 
     p = (float***)malloc(k * sizeof(float**));
+    assert(p);
 
     for (i = 0; i < k; i++) {       
         p[i] = (float**)malloc(h * sizeof(float*));
+        assert(p[i]);
     }
 
     for (i = 0; i < k; i++) {
         for (j = 0; j < h; j++) {
             p[i][j] = (float*)malloc(w * sizeof(float));
+            assert(p[i][j]);
         }
     }
 
@@ -168,6 +165,7 @@ ip_mat* ip_mat_create(unsigned int h, unsigned int w, unsigned  int k, float v) 
     matt->data = p;  /*fine allocazione array 3d*/
 
     statistiche = (stats*)malloc(k * sizeof(stats)); /*inizio allcoazione array stats*/
+    assert(statistiche);
 
     for (i = 0; i < k; i++)
     {
@@ -234,15 +232,9 @@ void compute_stats(ip_mat* t)
     }
 }
 
-float gaussian(float x, float mean, float var)  /*ritorna valori gaussiana*/
-{
-    return  (float)(1.0f / (var * sqrt(2.0 * PI)))
-        * exp(-(pow((x - mean), 2) / (2.0f * pow(var, 2))));
-}
-
 /* Inizializza una ip_mat con dimensioni w h e k. w h k ci sono gia
  * Ogni elemento è generato da una gaussiana con media mean e varianza var */
-void ip_mat_init_random(ip_mat* t, float mean, float var)
+void ip_mat_init_random(ip_mat* t, float mean, float std)
 {
     unsigned int i, j, l;
 
@@ -359,6 +351,7 @@ ip_mat* ip_mat_concat(ip_mat* a, ip_mat* b, int dimensione) {
         printf("Errore ip_mat_concat!!!\n");
         exit(1);
     }
+
     compute_stats(matt);
     return matt;
 }
@@ -564,22 +557,15 @@ ip_mat* ip_mat_brighten(ip_mat* a, float bright)
  * */
 ip_mat* ip_mat_corrupt(ip_mat* a, float amount) {
     if (amount >= 0.0 && amount <= 255) {
-        ip_mat* gaussNoise;
-        ip_mat* adjGaussNoise;
-        ip_mat* corr;
+        ip_mat* corrupted;
+        corrupted = ip_mat_create(a->h, a->w, a->k, 0);  
 
-        gaussNoise = ip_mat_create(a->h, a->w, a->k, 0);   
-        ip_mat_init_random(gaussNoise, 0, 1); /*inizializzo gaussNoise con valori gaussiana*/
+        /*Con std = 1/3 amount, abbiamo il 99.73% di generare numeri compresi tra [-amount, +amount],
+            in quanto amount = 3 std*/
+        ip_mat_init_random(corrupted, 0, 0.33 * amount);
 
-        adjGaussNoise = ip_mat_mul_scalar(gaussNoise, amount); /*gaussNoise per quantita di rumero da inserire*/
-
-        corr = ip_mat_sum(a, adjGaussNoise); /*sommo le 2 ip mat*/
-
-        ip_mat_free(gaussNoise);
-        ip_mat_free(adjGaussNoise);
-
-        compute_stats(corr);
-        return corr;
+        compute_stats(corrupted);
+        return corrupted;
     }
     else {
         printf("Errore ip_mat_corrupt!!!\n");
@@ -593,6 +579,8 @@ ip_mat* ip_mat_corrupt(ip_mat* a, float amount) {
 /*----------------------------------------terza parte----------------------------------------*/
 
 /*Ritorna una matrice ad una dimensione i cui valori sono la media delle k dimensioni della matrice originale*/
+/*Utilizzato nella prima versione del progetto per risolvere il problema di avere filtro ed immagine con un numero
+    di canali diversi all'interno di ip_mat_convolve*/
 ip_mat* ip_mat_1D_average(ip_mat* t)
 {
     unsigned int i, j, k;
@@ -625,18 +613,18 @@ ip_mat* ip_mat_1D_average(ip_mat* t)
  * */
 ip_mat* ip_mat_convolve(ip_mat* a, ip_mat* f)
 {
+    /*Filtro ed immagine devono avere lo stesso numero di canali per poter correttamente applicare la convoluzione*/
+    assert(a->k == f->k);
+
     unsigned int i, j, k, ii, jj;
     float pad_h, pad_w;
     ip_mat* padded;
-    ip_mat* avgFilter;
     ip_mat* res;
 
     pad_h = (f->h - 1) / 2;
     pad_w = (f->w - 1) / 2;
 
-
     padded = ip_mat_padding(a, pad_h, pad_w);
-    avgFilter = ip_mat_1D_average(f);
     res = ip_mat_create(a->h, a->w, a->k, 0);
 
     for (k = 0; k < a->k; k++)
@@ -666,11 +654,9 @@ ip_mat* ip_mat_convolve(ip_mat* a, ip_mat* f)
         }
     }
 
-    ip_mat_free(avgFilter);
     ip_mat_free(padded);
 
     compute_stats(res);
-
     return res;
 }
 
@@ -687,15 +673,7 @@ ip_mat* ip_mat_padding(ip_mat* a, int pad_h, int pad_w)
 {
     unsigned int i, j, k, l;
     ip_mat* padded;
-    float avgPadding = 0;
-
-    compute_stats(a);
-    for (l = 0; l < a->k; l++)
-    {
-        avgPadding += a->stat[l].mean;
-    }
-    avgPadding /= 3.0;
-    padded = ip_mat_create(a->h + pad_h * 2, a->w + pad_w * 2, a->k, avgPadding);
+    padded = ip_mat_create(a->h + pad_h * 2, a->w + pad_w * 2, a->k, 0);
 
     /*Creo prima una matrice di 0 delle dimensioni paddate (a.h + pad_h, a.w + pad_w),
     poi la "riempio" inserendo la matrice originale al centro
@@ -799,7 +777,7 @@ ip_mat* create_emboss_filter()
 }
 
 /* Crea un filtro medio per la rimozione del rumore */
-ip_mat* create_average_filter(int w, int h, int k)
+ip_mat* create_average_filter(unsigned int h, unsigned int w, unsigned int k)
 {
     float c = 1.0f / (w * h);
 
@@ -808,7 +786,7 @@ ip_mat* create_average_filter(int w, int h, int k)
 }
 
 /* Crea un filtro gaussiano per la rimozione del rumore */
-ip_mat* create_gaussian_filter(int w, int h, int k, float sigma)
+ip_mat* create_gaussian_filter(unsigned int h, unsigned int w, unsigned int k, float sigma)
 {
     if(sigma>0 && (w%2==1) && (h%2==1)){
         unsigned int i, j, kk;
