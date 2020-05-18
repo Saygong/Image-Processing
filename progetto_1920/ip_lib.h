@@ -172,6 +172,11 @@ ip_mat * create_gaussian_filter(int w, int h, int k, float sigma);
  * */
 void rescale(ip_mat * t, float new_max);
 
+/*
+* Comprime un valore all'interno del range [lo,hi]
+*/
+float clamp_f(float f, float lo, float hi);
+
 /* Nell'operazione di clamping i valori <low si convertono in low e i valori >high in high.*/
 void clamp(ip_mat * t, float low, float high);
 

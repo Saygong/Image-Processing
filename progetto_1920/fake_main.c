@@ -6,6 +6,36 @@
 int main()
 {   
 
+    Bitmap *bm = bm_load("flower.bmp");
+    /*Bitmap *bm1 = bm_load("mongolfiere.bmp");*/
+
+    ip_mat *mat = bitmap_to_ip_mat(bm);
+    /*ip_mat *mat1 = bitmap_to_ip_mat(bm1);*/
+    ip_mat *filt;
+    ip_mat *res;
+    ip_mat *res1;
+     
+    filt = create_average_filter(9,9,1);
+    /*res1 = ip_mat_corrupt(mat, 0);*/
+    res = ip_mat_convolve(mat, filt);
+    printf("sono uscito\n");
+
+    /*res = ip_mat_blend(mat, mat1, 0.5);*/
+
+    bm = ip_mat_to_bitmap(res);
+    bm_save(bm, "oi_gesubambino.bmp");
+
+    /*bm = ip_mat_to_bitmap(res1);
+    bm_save(bm, "oi_giacomo.bmp");*/
+
+    bm_free(bm);
+    
+    ip_mat_free(mat);
+    ip_mat_free(filt);
+    ip_mat_free(res);
+    /*ip_mat_free(res1);*/
+
+  /*
     Bitmap *bm;
     
     ip_mat *mat=ip_mat_create(100,100,3,0.0);
@@ -17,26 +47,6 @@ int main()
     bm = ip_mat_to_bitmap(mat);
     bm_save(bm, "random.bmp");
     ip_mat_free(mat);
-    
-
-
-/*
-
-    Bitmap *bm = bm_load("fullmoon.bmp");
-
-
-    ip_mat *mat = bitmap_to_ip_mat(bm);
-    
-    mat=ip_mat_corrupt(mat, 100);
-
-    bm = ip_mat_to_bitmap(mat);
-    bm_save(bm, "corone.bmp");
-
-    bm_free(bm);
-    
-    ip_mat_free(mat);
-
-    
     
     
 
