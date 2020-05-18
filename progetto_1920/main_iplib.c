@@ -65,7 +65,6 @@ int main (int argc, char * argv[]) {
         sigma = atof(argv[7]);
     }
 
-
     b = bm_load(fn_in_1);  /* leggi il file di input */
 
     input_img = bitmap_to_ip_mat(b); /* converti la bitmap in un ip_mat */
@@ -80,7 +79,6 @@ int main (int argc, char * argv[]) {
         clamp(img,0,255); /* effettua il clamping dei valori in 0-255 */
     }
     else if (strcmp(operation, "blend") == 0) {
-
         Bitmap * c = bm_load(fn_in_2);
         ip_mat * img_b = bitmap_to_ip_mat(c);
 
@@ -88,7 +86,6 @@ int main (int argc, char * argv[]) {
 
         ip_mat_free(img_b);
         bm_free(c);
-
     }else if (strcmp(operation, "gray") == 0) {
         img = ip_mat_to_gray_scale(input_img);
     }
@@ -139,7 +136,7 @@ int main (int argc, char * argv[]) {
     b2 = ip_mat_to_bitmap(img); /* converti l'immagine di output in una bitmap */
 
     ip_mat_free(img); /* libera la memoria da img */
-    ip_mat_free(filter);  /*libera la memoria dal filtro */
+    ip_mat_free(filter); /* libera la memoria dal filtro */
 
     bm_save(b2, fn_out); /* salva la bitmap di output su file */
     bm_free(b2); /* libera la memoria dalla bitmap */
