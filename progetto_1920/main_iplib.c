@@ -1,3 +1,4 @@
+/* Gruppo no.13, Pierluigi	Marchioro	881929,	Andrea	Gentilini	880141,	Jose Antonio	Calderon	878983,	Run Jie	Xia	879779*/
 #include <stdio.h>
 #include <string.h>
 #include "ip_lib.h"
@@ -32,14 +33,14 @@ int main (int argc, char * argv[]) {
 
     int k_size = 3; /* kernel size */
     float sigma = 1.; /* sigma del kernel gaussiano */
-
+    
     /* variabili di appoggio per le computazioni */
     Bitmap * b = NULL, *c = NULL, *b2 = NULL;
     ip_mat * input_img = NULL;
     ip_mat * filter = NULL;
     ip_mat * img= NULL, * img_b= NULL;
     ip_mat * temp = NULL;
-
+    
     if(argc==1){
         show_help();
         return 0;
@@ -142,6 +143,7 @@ int main (int argc, char * argv[]) {
 
     bm_save(b2, fn_out); /* salva la bitmap di output su file */
     bm_free(b2); /* libera la memoria dalla bitmap */
+    
 
     return 0; /* ciao a tutti!*/
 }

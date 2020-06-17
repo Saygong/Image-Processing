@@ -1,4 +1,5 @@
 /*
+ Gruppo no.13, Pierluigi	Marchioro	881929,	Andrea	Gentilini	880141,	Jose Antonio	Calderon	878983,	Run Jie	Xia	879779
  Laboratorio di programmazione A.A. 2019/2020
 
  Sebastiano Vascon
@@ -230,6 +231,9 @@ void rescale(ip_mat * t, float new_max);
  * Il risultato dell'operazione si salva in t
  * */
 void clamp(ip_mat * t, float low, float high);
+
+/* Comprime un valore all'interno del range [lo,hi]*/
+float clamp_f(float f, float lo, float hi);
 
 /**** METODI GIA' IMPLEMENTATI ****/
 /* Genera dei numeri casuali con distribuzione Normale
